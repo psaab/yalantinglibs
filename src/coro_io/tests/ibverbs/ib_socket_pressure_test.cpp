@@ -12,7 +12,7 @@
 #include <thread>
 
 #include "asio/ip/address.hpp"
-#include "asio/ip/address_v4.hpp"
+#include "asio/ip/address_v6.hpp"
 #include "asio/ip/tcp.hpp"
 #include "async_simple/Signal.h"
 #include "async_simple/coro/Collect.h"
@@ -172,11 +172,7 @@ async_simple::coro::Lazy<std::error_code> echo_accept() {
   asio::ip::tcp::acceptor acceptor(
       coro_io::get_global_executor()->get_asio_executor());
   std::error_code ec;
-  auto address = asio::ip::address_v4::from_string("0.0.0.0", ec);
-  if (ec) [[unlikely]] {
-    co_return ec;
-  }
-  auto endpoint = asio::ip::tcp::endpoint(address, config.port);
+  auto endpoint = asio::ip::tcp::endpoint(asio::ip::address_v6::any(), config.port);
   acceptor.open(endpoint.protocol(), ec);
   if (ec) [[unlikely]] {
     co_return ec;

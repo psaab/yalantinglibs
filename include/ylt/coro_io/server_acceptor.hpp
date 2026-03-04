@@ -47,23 +47,54 @@ struct server_acceptor_base {
   }
   void init_address(std::string_view address) {
     if (port_ == 0) {
-      if (size_t pos = address.rfind(':'); pos != std::string::npos) {
-        auto port_sv = std::string_view(address).substr(pos + 1);
-
-        uint16_t port;
-        auto [ptr, ec] = std::from_chars(
-            port_sv.data(), port_sv.data() + port_sv.size(), port, 10);
-        if (ec != std::errc{}) {
-          address_ = std::string{address};
+      if (!address.empty() && address.front() == '[') {
+        // Bracketed IPv6: [::1]:port
+        auto close = address.find(']');
+        if (close != std::string_view::npos) {
+          auto host = address.substr(1, close - 1);
+          if (close + 2 < address.size() && address[close + 1] == ':') {
+            auto port_sv = address.substr(close + 2);
+            uint16_t port;
+            auto [ptr, ec] = std::from_chars(
+                port_sv.data(), port_sv.data() + port_sv.size(), port, 10);
+            if (ec == std::errc{}) {
+              port_ = port;
+            }
+          }
+          address_ = std::string{host};
           return;
         }
-
-        port_ = port;
-        address = address.substr(0, pos);
-        if (address.front() == '[') {
-          if (address.size() > 2)
-            address = address.substr(1, address.size() - 2);
+      }
+      else {
+        // Count colons to distinguish IPv4/hostname:port from bare IPv6
+        auto first = address.find(':');
+        if (first != std::string_view::npos) {
+          auto second = address.find(':', first + 1);
+          if (second != std::string_view::npos) {
+            // Multiple colons: bare IPv6 address, no port
+            address_ = std::string{address};
+            return;
+          }
+          // Single colon: host:port
+          auto port_sv = address.substr(first + 1);
+          uint16_t port;
+          auto [ptr, ec] = std::from_chars(
+              port_sv.data(), port_sv.data() + port_sv.size(), port, 10);
+          if (ec != std::errc{}) {
+            address_ = std::string{address};
+            return;
+          }
+          port_ = port;
+          address = address.substr(0, first);
         }
+      }
+    }
+    else if (!address.empty() && address.front() == '[') {
+      // Port already set, strip brackets from IPv6 address
+      auto close = address.find(']');
+      if (close != std::string_view::npos) {
+        address_ = std::string{address.substr(1, close - 1)};
+        return;
       }
     }
 

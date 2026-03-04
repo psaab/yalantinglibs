@@ -183,12 +183,19 @@ std::string get_first_local_ip() {
     tcp::resolver::query query(asio::ip::host_name(), "");
     tcp::resolver::iterator iter = resolver.resolve(query);
     tcp::resolver::iterator end;  // End marker.
+    std::string v6_result;
     while (iter != end) {
       tcp::endpoint ep = *iter++;
       auto addr = ep.address();
       if (addr.is_v4()) {
         return addr.to_string();
       }
+      if (addr.is_v6() && v6_result.empty()) {
+        v6_result = addr.to_string();
+      }
+    }
+    if (!v6_result.empty()) {
+      return v6_result;
     }
   } catch (std::exception& e) {
     ELOG_WARN << "get_first_local_ip error: " << e.what();

@@ -136,42 +136,58 @@ class uri_t {
       // now lets see if we have a port specified -- by working back from the
       // end
       if (authority_begin != authority_end) {
-        // the port is made up of all digits
-        const char *port_begin = authority_end - 1;
-        for (; isdigit(*port_begin) && port_begin != authority_begin;
-             port_begin--) {
-        }
-
-        const char *host_begin = nullptr;
+        const char *host_begin = authority_begin;
         const char *host_end = nullptr;
-        if (*port_begin == (':')) {
-          // has a port
-          host_begin = authority_begin;
-          host_end = port_begin;
 
-          // skip the colon
-          port_begin++;
-
-          port = std::string_view(port_begin, authority_end - port_begin);
-        }
-        else {
-          // no port
-          host_begin = authority_begin;
-          host_end = authority_end;
-        }
-
-        // look for a user_info component
+        // look for a user_info component first
         const char *u_end = host_begin;
-        for (; is_user_info_character(*u_end) && u_end != host_end; u_end++) {
+        for (; u_end != authority_end && is_user_info_character(*u_end);
+             u_end++) {
         }
-
-        if (*u_end == ('@')) {
-          host_begin = u_end + 1;
+        if (u_end != authority_end && *u_end == ('@')) {
           auto uinfo_begin = authority_begin;
           auto uinfo_end = u_end;
           uinfo = std::string_view(uinfo_begin, uinfo_end - uinfo_begin);
+          host_begin = u_end + 1;
         }
-        host = std::string_view(host_begin, host_end - host_begin);
+
+        if (host_begin != authority_end && *host_begin == '[') {
+          // IPv6 literal: [address] or [address]:port
+          auto bracket_end = host_begin + 1;
+          for (; bracket_end != authority_end && *bracket_end != ']';
+               bracket_end++) {
+          }
+          if (bracket_end != authority_end) {
+            host = std::string_view(host_begin, bracket_end + 1 - host_begin);
+            auto after_bracket = bracket_end + 1;
+            if (after_bracket != authority_end && *after_bracket == ':') {
+              auto port_begin = after_bracket + 1;
+              port =
+                  std::string_view(port_begin, authority_end - port_begin);
+            }
+          }
+          else {
+            host = std::string_view(host_begin, authority_end - host_begin);
+          }
+        }
+        else {
+          // IPv4 or hostname: scan backward for port
+          const char *port_begin = authority_end - 1;
+          for (; isdigit(*port_begin) && port_begin != host_begin;
+               port_begin--) {
+          }
+
+          if (*port_begin == (':')) {
+            // has a port
+            host_end = port_begin;
+            port_begin++;
+            port = std::string_view(port_begin, authority_end - port_begin);
+          }
+          else {
+            host_end = authority_end;
+          }
+          host = std::string_view(host_begin, host_end - host_begin);
+        }
       }
     }
 

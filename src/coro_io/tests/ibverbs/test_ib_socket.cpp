@@ -8,7 +8,7 @@
 
 #include "asio/buffer.hpp"
 #include "asio/ip/address.hpp"
-#include "asio/ip/address_v4.hpp"
+#include "asio/ip/address_v6.hpp"
 #include "asio/ip/tcp.hpp"
 #include "async_simple/Signal.h"
 #include "async_simple/coro/Collect.h"
@@ -35,11 +35,7 @@ async_simple::coro::Lazy<std::error_code> echo_accept(
     coro_io::ExecutorWrapper<>* executor = coro_io::get_global_executor()) {
   asio::ip::tcp::acceptor acceptor(executor->get_asio_executor());
   std::error_code ec;
-  auto address = asio::ip::address_v4::from_string("0.0.0.0", ec);
-  if (ec) [[unlikely]] {
-    co_return ec;
-  }
-  auto endpoint = asio::ip::tcp::endpoint(address, 0);
+  auto endpoint = asio::ip::tcp::endpoint(asio::ip::address_v6::any(), 0);
   acceptor.open(endpoint.protocol(), ec);
   if (ec) [[unlikely]] {
     co_return ec;

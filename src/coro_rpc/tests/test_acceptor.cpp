@@ -47,7 +47,7 @@ TEST_CASE("test server acceptor") {
   SUBCASE("test multi server acceptor") {
     std::vector<std::unique_ptr<coro_io::server_acceptor_base>> acceptors;
     acceptors.emplace_back(
-        std::make_unique<coro_io::tcp_server_acceptor>("0.0.0.0", 8824));
+        std::make_unique<coro_io::tcp_server_acceptor>("::", 8824));
     acceptors.emplace_back(
         std::make_unique<coro_io::tcp_server_acceptor>("localhost", 8825));
     coro_rpc_server server(coro_rpc::config_t{}, std::move(acceptors));

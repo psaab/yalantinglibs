@@ -82,7 +82,7 @@ class coro_rpc_server_base {
    */
   coro_rpc_server_base(size_t thread_num = std::thread::hardware_concurrency(),
                        unsigned short port = 9001,
-                       std::string address = "0.0.0.0",
+                       std::string address = "::",
                        std::chrono::steady_clock::duration
                            conn_timeout_duration = std::chrono::seconds(0),
                        bool is_enable_tcp_no_delay = true)

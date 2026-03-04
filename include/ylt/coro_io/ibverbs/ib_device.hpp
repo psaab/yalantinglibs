@@ -375,8 +375,7 @@ class ib_device_t : public std::enable_shared_from_this<ib_device_t> {
       if (auto ret = ibv_query_gid_ex(ctx_.get(), port_, i, &gid_entry, 0)) {
         continue;
       }
-      if ((ipv6_addr_v4mapped((struct in6_addr*)gid_entry.gid.raw) &&
-           gid_entry.gid_type == IBV_GID_TYPE_ROCE_V2) ||
+      if (gid_entry.gid_type == IBV_GID_TYPE_ROCE_V2 ||
           gid_entry.gid_type == IBV_GID_TYPE_IB) {
         return i;
       }

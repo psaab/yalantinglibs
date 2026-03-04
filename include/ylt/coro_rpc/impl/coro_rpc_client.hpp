@@ -611,9 +611,34 @@ class coro_rpc_client {
       std::string_view address,
       std::chrono::steady_clock::duration connect_timeout_duration,
       std::vector<asio::ip::tcp::endpoint> *eps = nullptr) {
-    auto pos = address.rfind(':');
-    std::string host(address.substr(0, pos));
-    std::string port(address.substr(pos + 1));
+    std::string host;
+    std::string port;
+    if (!address.empty() && address.front() == '[') {
+      auto close = address.find(']');
+      if (close != std::string_view::npos) {
+        host = address.substr(1, close - 1);
+        if (close + 2 < address.size() && address[close + 1] == ':')
+          port = address.substr(close + 2);
+      }
+    }
+    else {
+      auto first = address.find(':');
+      if (first != std::string_view::npos &&
+          address.find(':', first + 1) != std::string_view::npos) {
+        // Multiple colons: bare IPv6 address without port
+        host = address;
+      }
+      else {
+        auto pos = address.rfind(':');
+        if (pos != std::string_view::npos) {
+          host = address.substr(0, pos);
+          port = address.substr(pos + 1);
+        }
+        else {
+          host = address;
+        }
+      }
+    }
 
     return connect(std::move(host), std::move(port), connect_timeout_duration,
                    eps);
@@ -629,12 +654,7 @@ class coro_rpc_client {
   [[nodiscard]] async_simple::coro::Lazy<coro_rpc::err_code> connect(
       std::string_view address,
       std::vector<asio::ip::tcp::endpoint> *eps = nullptr) {
-    auto pos = address.rfind(':');
-    std::string host(address.substr(0, pos));
-    std::string port(address.substr(pos + 1));
-
-    return connect(std::move(host), std::move(port),
-                   config_.connect_timeout_duration, eps);
+    return connect(address, config_.connect_timeout_duration, eps);
   }
 
 #ifdef YLT_ENABLE_SSL

@@ -38,7 +38,7 @@ struct config_t {
   unsigned thread_num = std::thread::hardware_concurrency();
   std::chrono::steady_clock::duration conn_timeout_duration =
       std::chrono::seconds{0};
-  std::string address = "0.0.0.0";
+  std::string address = "::";
 #ifdef YLT_ENABLE_SSL
   std::optional<ssl_configure> ssl_config = std::nullopt;
 #ifdef YLT_ENABLE_NTLS
