@@ -2253,7 +2253,8 @@ class coro_http_client : public std::enable_shared_from_this<coro_http_client> {
       host_ = proxy_host_.empty() ? u.get_host() : proxy_host_;
       port_ = proxy_port_.empty() ? u.get_port() : proxy_port_;
       if (eps->empty()) {
-        CINATRA_LOG_TRACE << "start resolve host: " << host_ << ":" << port_;
+        CINATRA_LOG_TRACE << "start resolve host: "
+                         << coro_io::build_host_port(host_, port_);
         auto [ec, iter] = co_await coro_io::async_resolve(
             &executor_wrapper_, socket_->impl_, host_, port_);
         if (ec) {
@@ -2274,8 +2275,9 @@ class coro_http_client : public std::enable_shared_from_this<coro_http_client> {
       CINATRA_LOG_TRACE
           << "start connect to endpoint lists. total endpoint count:"
           << eps->size()
-          << ", the first endpoint is: " << (*eps)[0].address().to_string()
-          << ":" << std::to_string((*eps)[0].port());
+          << ", the first endpoint is: "
+          << coro_io::build_host_port(
+                 (*eps)[0].address().to_string(), (*eps)[0].port());
       std::error_code ec;
       if (ec = co_await coro_io::async_connect(socket_->impl_, *eps); ec) {
         co_return resp_data{ec, 404};
@@ -2322,8 +2324,10 @@ class coro_http_client : public std::enable_shared_from_this<coro_http_client> {
       socket_->has_closed_ = false;
       CINATRA_LOG_TRACE
           << "connect to endpoint: "
-          << socket_->impl_.remote_endpoint().address().to_string() << ":"
-          << socket_->impl_.remote_endpoint().port() << " successfully";
+          << coro_io::build_host_port(
+                 socket_->impl_.remote_endpoint().address().to_string(),
+                 socket_->impl_.remote_endpoint().port())
+          << " successfully";
     }
     co_return resp_data{};
   }

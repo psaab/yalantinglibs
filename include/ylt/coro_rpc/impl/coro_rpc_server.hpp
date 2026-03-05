@@ -437,8 +437,10 @@ class coro_rpc_server_base {
       tasks.emplace_back(accept_impl(*acceptor));
     }
     auto results = co_await async_simple::coro::collectAny(std::move(tasks));
-    ELOG_INFO << "acceptor:" << acceptors_[results.index()]->address() << ":"
-              << acceptors_[results.index()]->port()
+    ELOG_INFO << "acceptor:"
+              << coro_io::build_host_port(
+                     acceptors_[results.index()]->address(),
+                     acceptors_[results.index()]->port())
               << " exit by:" << results.value();
     co_return results.value();
   }

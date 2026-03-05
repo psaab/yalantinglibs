@@ -185,7 +185,8 @@ class client_pool : public std::enable_shared_from_this<
     uint32_t i = UINT32_MAX;  // (at least connect once)
     do {
       ELOG_TRACE << "try to reconnect client{" << client.get() << "},host:{"
-                 << client->get_host() << ":" << client->get_port()
+                 << coro_io::build_host_port(
+                        client->get_host(), client->get_port())
                  << "}, try count:" << i + 1 << "max retry limit:"
                  << self->pool_config_.connect_retry_count;
       auto [ok, cost_time] = co_await reconnect_impl(client, self);
@@ -205,7 +206,8 @@ class client_pool : public std::enable_shared_from_this<
       ++i;
     } while (self && i < self->pool_config_.connect_retry_count);
     ELOG_WARN << "reconnect client{" << client.get() << "},host:{"
-              << client->get_host() << ":" << client->get_port()
+              << coro_io::build_host_port(
+                     client->get_host(), client->get_port())
               << "} out of max limit, stop retry. connect failed";
     alive_detect(client->get_config(), std::move(self)).start([](auto&&) {
     });

@@ -63,6 +63,57 @@
 #include <sys/sendfile.h>
 #endif
 namespace coro_io {
+
+// Split an address string into host and port, handling IPv6 bracket notation.
+// Supports: "host:port", "[::1]:port", "::1" (bare IPv6, no port), "host".
+inline std::pair<std::string, std::string> split_host_port(
+    std::string_view address) {
+  if (!address.empty() && address.front() == '[') {
+    // Bracketed IPv6: [addr] or [addr]:port
+    auto close = address.find(']');
+    if (close != std::string_view::npos) {
+      std::string host{address.substr(1, close - 1)};
+      std::string port;
+      if (close + 2 < address.size() && address[close + 1] == ':')
+        port = address.substr(close + 2);
+      return {std::move(host), std::move(port)};
+    }
+  }
+  // Count colons: 2+ means bare IPv6 (no port)
+  auto first = address.find(':');
+  if (first != std::string_view::npos &&
+      address.find(':', first + 1) != std::string_view::npos) {
+    return {std::string{address}, {}};
+  }
+  // Single colon: host:port
+  if (first != std::string_view::npos) {
+    return {std::string{address.substr(0, first)},
+            std::string{address.substr(first + 1)}};
+  }
+  // No colon: plain host
+  return {std::string{address}, {}};
+}
+
+// Join host and port into a string, adding brackets for IPv6 addresses.
+// e.g. ("::1", 8080) -> "[::1]:8080", ("1.2.3.4", 80) -> "1.2.3.4:80"
+template <typename Port>
+inline std::string build_host_port(std::string_view host, Port port) {
+  std::string result;
+  if (host.find(':') != std::string_view::npos) {
+    result.append("[").append(host).append("]");
+  }
+  else {
+    result.append(host);
+  }
+  if constexpr (std::is_arithmetic_v<Port>) {
+    result.append(":").append(std::to_string(port));
+  }
+  else {
+    result.append(":").append(port);
+  }
+  return result;
+}
+
 template <typename T>
 constexpr inline bool is_lazy_v =
     util::is_specialization_v<std::remove_cvref_t<T>, async_simple::coro::Lazy>;
@@ -844,7 +895,7 @@ struct endpoint {
 };
 
 inline std::ostream &operator<<(std::ostream &stream, const endpoint &ep) {
-  return stream << ep.address.to_string() << ":" << ep.port;
+  return stream << build_host_port(ep.address.to_string(), ep.port);
 }
 
 }  // namespace coro_io

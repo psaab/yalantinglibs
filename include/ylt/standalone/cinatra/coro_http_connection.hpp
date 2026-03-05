@@ -1281,7 +1281,7 @@ class coro_http_connection
     if (ec) {
       return;
     }
-    address.append(":").append(std::to_string(pt.port()));
+    address = coro_io::build_host_port(address, pt.port());
   }
 
  private:

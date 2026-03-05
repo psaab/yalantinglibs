@@ -1121,40 +1121,16 @@ class coro_http_server {
     easylog::logger<>::instance();  // init easylog singleton to make sure
                                     // server destruct before easylog.
 #endif
-    if (!address.empty() && address.front() == '[') {
-      // Bracketed IPv6: [::1]:port
-      auto close = address.find(']');
-      if (close != std::string::npos) {
-        if (close + 2 < address.size() && address[close + 1] == ':') {
-          auto port_sv = std::string_view(address).substr(close + 2);
-          uint16_t port;
-          auto [ptr, ec] = std::from_chars(
-              port_sv.data(), port_sv.data() + port_sv.size(), port, 10);
-          if (ec == std::errc{}) {
-            port_ = port;
-          }
-        }
-        address_ = address.substr(1, close - 1);
-        return;
-      }
-    }
-    else if (size_t pos = address.find(':');
-             pos != std::string::npos && !is_ip_v6(address)) {
-      auto port_sv = std::string_view(address).substr(pos + 1);
-
+    auto [host, port_str] = coro_io::split_host_port(address);
+    address_ = std::move(host);
+    if (!port_str.empty()) {
       uint16_t port;
       auto [ptr, ec] = std::from_chars(
-          port_sv.data(), port_sv.data() + port_sv.size(), port, 10);
-      if (ec != std::errc{}) {
-        address_ = std::move(address);
-        return;
+          port_str.data(), port_str.data() + port_str.size(), port, 10);
+      if (ec == std::errc{}) {
+        port_ = port;
       }
-
-      port_ = port;
-      address = address.substr(0, pos);
     }
-
-    address_ = std::move(address);
   }
 
  private:

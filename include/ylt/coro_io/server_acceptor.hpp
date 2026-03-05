@@ -46,59 +46,16 @@ struct server_acceptor_base {
       pool_ = pool;
   }
   void init_address(std::string_view address) {
-    if (port_ == 0) {
-      if (!address.empty() && address.front() == '[') {
-        // Bracketed IPv6: [::1]:port
-        auto close = address.find(']');
-        if (close != std::string_view::npos) {
-          auto host = address.substr(1, close - 1);
-          if (close + 2 < address.size() && address[close + 1] == ':') {
-            auto port_sv = address.substr(close + 2);
-            uint16_t port;
-            auto [ptr, ec] = std::from_chars(
-                port_sv.data(), port_sv.data() + port_sv.size(), port, 10);
-            if (ec == std::errc{}) {
-              port_ = port;
-            }
-          }
-          address_ = std::string{host};
-          return;
-        }
-      }
-      else {
-        // Count colons to distinguish IPv4/hostname:port from bare IPv6
-        auto first = address.find(':');
-        if (first != std::string_view::npos) {
-          auto second = address.find(':', first + 1);
-          if (second != std::string_view::npos) {
-            // Multiple colons: bare IPv6 address, no port
-            address_ = std::string{address};
-            return;
-          }
-          // Single colon: host:port
-          auto port_sv = address.substr(first + 1);
-          uint16_t port;
-          auto [ptr, ec] = std::from_chars(
-              port_sv.data(), port_sv.data() + port_sv.size(), port, 10);
-          if (ec != std::errc{}) {
-            address_ = std::string{address};
-            return;
-          }
-          port_ = port;
-          address = address.substr(0, first);
-        }
+    auto [host, port_str] = coro_io::split_host_port(address);
+    address_ = std::move(host);
+    if (port_ == 0 && !port_str.empty()) {
+      uint16_t port;
+      auto [ptr, ec] = std::from_chars(
+          port_str.data(), port_str.data() + port_str.size(), port, 10);
+      if (ec == std::errc{}) {
+        port_ = port;
       }
     }
-    else if (!address.empty() && address.front() == '[') {
-      // Port already set, strip brackets from IPv6 address
-      auto close = address.find(']');
-      if (close != std::string_view::npos) {
-        address_ = std::string{address.substr(1, close - 1)};
-        return;
-      }
-    }
-
-    address_ = std::string{address};
   }
   uint16_t port_;
   std::string address_;
@@ -167,9 +124,11 @@ struct tcp_server_acceptor : public server_acceptor_base {
     assert(acceptor_ != std::nullopt);
     auto executor = pool_->get_executor();
     asio::ip::tcp::socket socket(executor->get_asio_executor());
-    ELOG_TRACE << "start accepting from acceptor: " << address_ << ":" << port_;
+    ELOG_TRACE << "start accepting from acceptor: "
+               << coro_io::build_host_port(address_, port_);
     auto error = co_await coro_io::async_accept(*acceptor_, socket);
-    ELOG_TRACE << "get connection from acceptor: " << address_ << ":" << port_;
+    ELOG_TRACE << "get connection from acceptor: "
+               << coro_io::build_host_port(address_, port_);
     if (error) {
       ELOG_ERROR << "accept error: " << error.message();
       if (error == asio::error::operation_aborted ||

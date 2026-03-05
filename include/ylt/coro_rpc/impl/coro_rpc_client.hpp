@@ -611,35 +611,7 @@ class coro_rpc_client {
       std::string_view address,
       std::chrono::steady_clock::duration connect_timeout_duration,
       std::vector<asio::ip::tcp::endpoint> *eps = nullptr) {
-    std::string host;
-    std::string port;
-    if (!address.empty() && address.front() == '[') {
-      auto close = address.find(']');
-      if (close != std::string_view::npos) {
-        host = address.substr(1, close - 1);
-        if (close + 2 < address.size() && address[close + 1] == ':')
-          port = address.substr(close + 2);
-      }
-    }
-    else {
-      auto first = address.find(':');
-      if (first != std::string_view::npos &&
-          address.find(':', first + 1) != std::string_view::npos) {
-        // Multiple colons: bare IPv6 address without port
-        host = address;
-      }
-      else {
-        auto pos = address.rfind(':');
-        if (pos != std::string_view::npos) {
-          host = address.substr(0, pos);
-          port = address.substr(pos + 1);
-        }
-        else {
-          host = address;
-        }
-      }
-    }
-
+    auto [host, port] = coro_io::split_host_port(address);
     return connect(std::move(host), std::move(port), connect_timeout_duration,
                    eps);
   }
@@ -1040,7 +1012,7 @@ class coro_rpc_client {
     control_->has_closed_ = false;
 
     ELOG_INFO << "client_id " << config_.client_id << " begin to connect "
-              << config_.host << ":" << config_.port;
+              << coro_io::build_host_port(config_.host, config_.port);
     if (conn_timeout_dur.count() >= 0) {
       timeout(*this->timer_, conn_timeout_dur, "connect timer canceled")
           .start([](auto &&) {
@@ -1053,8 +1025,9 @@ class coro_rpc_client {
     std::error_code ec;
     asio::ip::tcp::resolver::iterator iter;
     if (eps->empty()) {
-      ELOG_TRACE << "start resolve host: " << config_.host << ":"
-                 << config_.port << ", client_id: " << config_.client_id;
+      ELOG_TRACE << "start resolve host: "
+                 << coro_io::build_host_port(config_.host, config_.port)
+                 << ", client_id: " << config_.client_id;
       std::tie(ec, iter) = co_await coro_io::async_resolve(
           control_->executor_, config_.host, config_.port);
       if (ec) {
@@ -1073,8 +1046,9 @@ class coro_rpc_client {
     }
     ELOG_TRACE << "start connect to endpoint lists. total endpoint count:"
                << eps->size()
-               << ", the first endpoint is: " << (*eps)[0].address().to_string()
-               << ":" << std::to_string((*eps)[0].port())
+               << ", the first endpoint is: "
+               << coro_io::build_host_port(
+                      (*eps)[0].address().to_string(), (*eps)[0].port())
                << ", client_id: " << config_.client_id;
     ec = co_await coro_io::async_connect(soc, *eps);
     std::error_code ignore_ec;
