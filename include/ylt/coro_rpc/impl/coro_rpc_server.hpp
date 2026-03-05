@@ -576,7 +576,8 @@ class coro_rpc_server_base {
         co_await conn->handshake<typename server_config::rpc_protocol>();
     if (result.ec.value() &&
         result.ec.value() != (int)std::errc::protocol_error) {
-      ELOG_WARN << "connection error:" << result.ec.message();
+      ELOG_WARN << "connection error:" << result.ec.message()
+                << ", remote:" << conn->get_remote_endpoint();
       co_return;
     }
     ELOG_TRACE << "finish handshake for conn:" << conn->get_connection_id();
